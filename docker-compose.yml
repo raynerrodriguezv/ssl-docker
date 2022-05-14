@@ -1,0 +1,49 @@
+version: '3.3'
+
+services:
+  traefik:
+    image: "traefik:v2.4.8"
+    container_name: "traefik"
+    restart: always
+    command:
+      - "--log.level=INFO"
+      # - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.app.acme.tlschallenge=true"
+      - "--certificatesresolvers.app.acme.email=mi.email@gmail.com"
+      - "--certificatesresolvers.app.acme.storage=/letsencrypt/acme.json"
+    networks:
+      - app
+    ports:
+      # Puertos iniciales para generar el certificado
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Directorio donde estará el certificado
+      - "letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  web-app:
+    build: .
+    image: node-sample
+    restart: always
+    environment:
+      - NGINX_HOST=mundo-devops.com
+      - NGINX_PORT=443
+    networks:
+      - app
+    depends_on:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web-app.rule=Host(`mundo-devops.com`)"
+      - "traefik.http.routers.web-app.entrypoints=websecure"
+      - "traefik.http.routers.web-app.tls.certresolver=app"
+
+networks:
+  app:
+
+volumes:
+  letsencrypt:
